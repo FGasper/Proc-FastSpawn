@@ -1,27 +1,44 @@
 
-use Test::More tests => 6;
+use Test::More tests => 11;
+
+use File::Temp;
+
+use Errno;
 
 use Proc::FastSpawn;
-
-#ok 1;
-#is Proc::FastSpawn::test_check_exec_errno(), 42, "test_check_exec_errno";
 
 {
     note "a failing process";
 
+    my $tempdir = File::Temp::tempdir( CLEANUP => 1 );
+
+    symlink 'foo', "$tempdir/foo";
+    do { open my $f, '>', "$tempdir/file" };
+
     local ( $?, $! );
 
-    my $pid = spawn "/bin/whatever", [ "/bin/whatever", "-e", "exit 5" ];
-    if ($pid) {
-        ok $pid, "pid $pid";
-        waitpid( $pid, 0 );
+    my @t = (
+        [ ENAMETOOLONG => "x" x 10000 ],
+        [ ENOENT => 'nonexistent.' . substr( rand, 2 ) ],
+        [ ELOOP => 'foo' ],
+        [ ENOTDIR => 'file/haha' ],
+    );
 
-        ok $?, q[$? is set];
+    for my $t ( @t ) {
+        my ($expect_err, $name) = @$t;
 
-        note '$?: ', $?;
-        note '$!: ', $!;
+        my $pid = spawn "$tempdir/$name", [ "$tempdir/$name" ];
 
-        is Proc::FastSpawn::check_last_exec_errno(), 2, "check_exec_errno report 2";
+      SKIP: {
+            skip "Failed to fork(): $!" if !$pid;
+
+            my $err = $!;
+
+            ok $pid, "pid $pid";
+            waitpid( $pid, 0 );
+
+            is 0 + $err, Errno->can($expect_err)->(), "\$! reflects errno from execve ($expect_err)";
+        }
     }
 }
 
@@ -31,6 +48,8 @@ use Proc::FastSpawn;
     note "a working process";
     my $pid = spawn $^X, [ "perl", "-e", "print qq[# print from kid: abcd\n];" ];
     if ($pid) {
+        my $err = $!;
+
         ok $pid, "pid $pid";
         waitpid( $pid, 0 );
 
@@ -39,23 +58,6 @@ use Proc::FastSpawn;
         note '$?: ', $?;
         note '$!: ', $!;
 
-        is Proc::FastSpawn::check_last_exec_errno(), 0, "check_exec_errno report no errors";
+        is 0 + $err, 0, '$! is unset';
     }
 }
-
-__END__
-
-SV*
-test_check_exec_errno()
-  CODE:
-    int i;
-    i = 42;
-
-    /* RETVAL = newSViv( i ); */
-    setup_last_exec_errno();
-    set_last_exec_errno(42);
-
-    RETVAL = newSViv( get_last_exec_errno() );
-
-  OUTPUT:
-    RETVAL
