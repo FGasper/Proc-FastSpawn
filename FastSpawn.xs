@@ -58,27 +58,6 @@ array_to_cvec (SV *sv)
   return cvec;
 }
 
-static int *_last_exec_errno = 0;
-
-/* prototypes */
-int get_last_exec_errno();
-void setup_last_exec_errno();
-void set_last_exec_errno(int error);
-
-/* functions */
-int get_last_exec_errno() {
-    if (!_last_exec_errno) return 0;
-    return *_last_exec_errno;
-}
-
-void setup_last_exec_errno() {
-  Newxz(_last_exec_errno, 1, int);
-}
-
-void set_last_exec_errno(int error) {
-    *_last_exec_errno = error;
-}
-
 MODULE = Proc::FastSpawn		PACKAGE = Proc::FastSpawn
 
 PROTOTYPES: ENABLE
@@ -87,15 +66,6 @@ BOOT:
 #ifndef WIN32
         cv_undef (get_cv ("Proc::FastSpawn::_quote", 0));
 #endif
-
-
-SV*
-check_last_exec_errno()
-  CODE:
-    RETVAL = newSViv( get_last_exec_errno() );
-
-  OUTPUT:
-    RETVAL
 
 long
 spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
@@ -149,7 +119,8 @@ spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
           pid = xpid;
         }
 #else
-        setup_last_exec_errno();
+        SETERRNO( 0, 0);
+
         pid = (ix ? fork : vfork) ();
 
         if (pid < 0)
@@ -165,7 +136,7 @@ spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
             else
               execve (path, cargv, cenvp);
 
-            set_last_exec_errno( errno );
+            SETERRNO( errno, 0 );
 
             _exit (127);
           }
