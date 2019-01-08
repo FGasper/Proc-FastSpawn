@@ -119,7 +119,7 @@ spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
           pid = xpid;
         }
 #else
-        SETERRNO( 0, 0);
+        SETERRNO(0, 0);
 
         pid = (ix ? fork : vfork) ();
 
