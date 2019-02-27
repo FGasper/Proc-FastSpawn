@@ -119,6 +119,9 @@ spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
           pid = xpid;
         }
 #else
+
+        // Ensure that any errno set from this function
+        // is one that we set.
         SETERRNO(0, 0);
 
         pid = (ix ? fork : vfork) ();
@@ -136,6 +139,11 @@ spawn (const char *path, SV *argv, SV *envp = &PL_sv_undef)
             else
               execve (path, cargv, cenvp);
 
+            // Strictly speaking, this violates the usage instructions
+            // for vfork(2) because we’re modifying a variable between
+            // the fork and exit (or exec). In practice, though, this
+            // doesn’t seem to make a difference for at least this
+            // particular “infraction”.
             SETERRNO( errno, 0 );
 
             _exit (127);
