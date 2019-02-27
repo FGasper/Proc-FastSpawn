@@ -103,6 +103,12 @@ Returns the PID of the new process if successful. On any error, C<undef>
 is currently returned. Failure to execution might or might not be reported
 as C<undef>, or via a subprocess exit status of C<127>.
 
+B<CPANEL-SPECIFIC NOTE:> cPanel uses a patched version of this module that
+populates C<$!> with the error code from either C<vfork> or C<exec>.
+The error code will allow you to deduce indicate which
+call it was that failed unless the error code is ENOMEM, in which case it
+doesn’t really matter which call failed.
+
 =item $pid = spawnp $file, \@argv[, \@envp]
 
 Like C<spawn>, but searches C<$file> in C<$ENV{PATH}> like the shell would
